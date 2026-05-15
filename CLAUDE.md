@@ -1,0 +1,98 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Commands
+
+```bash
+# Initial setup
+mix setup
+
+# Start dev server
+mix phx.server
+# or with IEx
+iex -S mix phx.server
+
+# Run all tests
+mix test
+
+# Run a single test file
+mix test test/fskick_web/controllers/page_controller_test.exs
+
+# Run previously failed tests
+mix test --failed
+
+# Pre-commit check (compile with warnings-as-errors, remove unused deps, format, test)
+mix precommit
+
+# Database
+mix ecto.setup       # create + migrate + seed
+mix ecto.reset       # drop + setup
+mix ecto.gen.migration migration_name_using_underscores
+
+# Asset build (dev)
+mix assets.build
+```
+
+The `precommit` alias runs in `:test` env. Run it before finishing any change set.
+
+## Architecture
+
+This is a Phoenix 1.8 + LiveView application backed by PostgreSQL via Ecto.
+
+**Key namespaces:**
+- `Fskick` — business logic / context modules (lives under `lib/fskick/`)
+- `FskickWeb` — web layer: router, controllers, LiveViews, components (lives under `lib/fskick_web/`)
+
+**Web layer wiring (`lib/fskick_web.ex`):**
+- `use FskickWeb, :live_view` — sets up LiveView with html_helpers (imports `FskickWeb.CoreComponents`, aliases `FskickWeb.Layouts` and `Phoenix.LiveView.JS`)
+- `use FskickWeb, :html` — for function component modules
+- `use FskickWeb, :controller` — for controllers
+- All templates have `FskickWeb.CoreComponents` and `FskickWeb.Layouts` available without explicit aliasing
+
+**HTTP stack:** Bandit (not Cowboy)
+
+**Asset pipeline:** esbuild (JS) + Tailwind v4 (CSS), both run as watchers in dev. Only `app.js` and `app.css` bundles are supported — all vendor deps must be imported into those files, never via external `<script src>` or `<link href>` tags.
+
+**CSS:** Tailwind v4 with this exact import block in `assets/css/app.css`:
+```css
+@import "tailwindcss" source(none);
+@source "../css";
+@source "../js";
+@source "../../lib/fskick_web";
+```
+Never use `@apply`. Never use a `tailwind.config.js`.
+
+**Email:** Swoosh with Local adapter in dev (preview at `/dev/mailbox`). Use `Req` for HTTP requests — never `:httpoison`, `:tesla`, or `:httpc`.
+
+## Phoenix 1.8 / LiveView rules
+
+- All LiveView templates must begin with `<Layouts.app flash={@flash} ...>` wrapping all content
+- Routes that need `current_scope` must be inside the correct `live_session` block; never fix missing-assign errors by adding assigns ad-hoc
+- Icons: always `<.icon name="hero-x-mark" />`, never `Heroicons` modules
+- Forms: always `to_form/2` → `<.form for={@form}>` → `<.input field={@form[:field]}>`. Never pass a raw changeset to a template
+- Collections in LiveViews: always use streams (`stream/3`, `stream_insert/3`, `stream_delete/3`); never assign plain lists for rendered collections
+- Links/navigation: `<.link navigate={href}>` / `<.link patch={href}>`, `push_navigate`, `push_patch`. Never `live_redirect` or `live_patch`
+- HEEx interpolation: `{...}` in tag attributes and simple values; `<%= ... %>` for block constructs (`if`, `case`, `for`) in tag bodies
+- HEEx comments: `<%!-- comment --%>`
+- Colocated JS hooks: use `<script :type={Phoenix.LiveView.ColocatedHook} name=".HookName">` (name must start with `.`); never `<script>` tags in templates
+- `<.flash_group>` only inside `layouts.ex` — forbidden everywhere else
+
+## Elixir pitfalls to avoid
+
+- Lists have no index access syntax — use `Enum.at/2` or pattern matching
+- Rebind `if`/`case`/`cond` results outside the block, not inside
+- Never nest multiple modules in one file
+- Never use map access syntax (`struct[:field]`) on plain structs — use `struct.field` or `Ecto.Changeset.get_field/2`
+- Never use `String.to_atom/1` on user input
+- Predicate functions end in `?`, not `is_` prefix
+- Fields set programmatically (e.g. `user_id`) must not appear in `cast/3` calls
+
+## Testing
+
+- Test helpers: `ConnCase` (`test/support/conn_case.ex`), `DataCase` (`test/support/data_case.ex`)
+- LiveView tests: `Phoenix.LiveViewTest` + `LazyHTML` for assertions
+- Always use `start_supervised!/1` for process lifecycle in tests
+- Avoid `Process.sleep/1`; use `Process.monitor/1` + `assert_receive {:DOWN, ...}` to wait for process exit
+- Use `:sys.get_state/1` to synchronize before next call
+- Assert on element presence/structure (`has_element?`, `element/2`), not raw HTML strings
