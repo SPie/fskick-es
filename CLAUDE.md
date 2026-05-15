@@ -30,6 +30,10 @@ mix ecto.setup       # create + migrate + seed
 mix ecto.reset       # drop + setup
 mix ecto.gen.migration migration_name_using_underscores
 
+# Event store
+mix event_store.setup   # create + init
+mix event_store.reset   # drop + setup
+
 # Asset build (dev)
 mix assets.build
 ```
@@ -49,6 +53,8 @@ This is a Phoenix 1.8 + LiveView application backed by PostgreSQL via Ecto.
 - `use FskickWeb, :html` — for function component modules
 - `use FskickWeb, :controller` — for controllers
 - All templates have `FskickWeb.CoreComponents` and `FskickWeb.Layouts` available without explicit aliasing
+
+**CQRS/Event Sourcing:** Commanded (`~> 1.4`) with `commanded_eventstore_adapter` and `eventstore`. The Commanded application is `Fskick.App` (`lib/fskick/app.ex`, `use Commanded.Application`). The event store is `Fskick.EventStore` (`lib/fskick/event_store.ex`, `use EventStore`). Both are started as supervised children in `Fskick.Application`. Config lives under `config :fskick, Fskick.App` (event store adapter) and `config :fskick, event_stores: [Fskick.EventStore]`.
 
 **HTTP stack:** Bandit (not Cowboy)
 

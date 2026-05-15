@@ -5,10 +5,19 @@ config :fskick, Fskick.Repo,
   username: "postgres",
   password: "postgres",
   hostname: "localhost",
+  port: 5433,
   database: "fskick_dev",
   stacktrace: true,
   show_sensitive_data_on_connection_error: true,
   pool_size: 10
+
+config :fskick, Fskick.EventStore,
+  serializer: EventStore.JsonSerializer,
+  username: "postgres",
+  password: "postgres",
+  hostname: "localhost",
+  port: 5434,
+  database: "fskick_eventstore_dev"
 
 # For development, we disable any cache and enable
 # debugging and code reloading.

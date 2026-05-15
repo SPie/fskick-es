@@ -26,6 +26,12 @@ config :fskick, Fskick.Mailer, adapter: Swoosh.Adapters.Test
 # Disable swoosh api client as it is only required for production adapters
 config :swoosh, :api_client, false
 
+# Use in-memory event store for speed; swap to Fskick.EventStore for full integration tests
+config :fskick, Fskick.App,
+  event_store: [
+    adapter: Commanded.EventStore.Adapters.InMemory
+  ]
+
 # Print only warnings and errors during test
 config :logger, level: :warning
 

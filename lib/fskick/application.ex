@@ -12,9 +12,7 @@ defmodule Fskick.Application do
       Fskick.Repo,
       {DNSCluster, query: Application.get_env(:fskick, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Fskick.PubSub},
-      # Start a worker by calling: Fskick.Worker.start_link(arg)
-      # {Fskick.Worker, arg},
-      # Start to serve requests, typically the last entry
+      Fskick.App,
       FskickWeb.Endpoint
     ]
 

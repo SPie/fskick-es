@@ -9,7 +9,14 @@ import Config
 
 config :fskick,
   ecto_repos: [Fskick.Repo],
-  generators: [timestamp_type: :utc_datetime]
+  generators: [timestamp_type: :utc_datetime],
+  event_stores: [Fskick.EventStore]
+
+config :fskick, Fskick.App,
+  event_store: [
+    adapter: Commanded.EventStore.Adapters.EventStore,
+    event_store: Fskick.EventStore
+  ]
 
 # Configure the endpoint
 config :fskick, FskickWeb.Endpoint,
