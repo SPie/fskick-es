@@ -13,6 +13,7 @@ defmodule Fskick.Application do
       {DNSCluster, query: Application.get_env(:fskick, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Fskick.PubSub},
       Fskick.App,
+      Fskick.Players.Projectors.Player,
       FskickWeb.Endpoint
     ]
 

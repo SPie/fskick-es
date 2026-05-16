@@ -56,6 +56,23 @@ This is a Phoenix 1.8 + LiveView application backed by PostgreSQL via Ecto.
 
 **CQRS/Event Sourcing:** Commanded (`~> 1.4`) with `commanded_eventstore_adapter` and `eventstore`. The Commanded application is `Fskick.App` (`lib/fskick/app.ex`, `use Commanded.Application`). The event store is `Fskick.EventStore` (`lib/fskick/event_store.ex`, `use EventStore`). Both are started as supervised children in `Fskick.Application`. Config lives under `config :fskick, Fskick.App` (event store adapter) and `config :fskick, event_stores: [Fskick.EventStore]`.
 
+**Context layout for CQRS entities** (established by `Fskick.Players`):
+
+- `lib/fskick/<context>.ex` — public API. Write side dispatches commands via `Fskick.App.dispatch/1`; read side queries the projection through `Fskick.Repo`.
+- `lib/fskick/<context>/commands/<verb>_<entity>.ex` — command as an embedded Ecto schema with `new/1` returning `{:ok, command} | {:error, changeset}`. Structural validation lives here: presence, trimming/formatting, and cross-aggregate uniqueness checks against the read model.
+- `lib/fskick/<context>/aggregates/<entity>.ex` — aggregate root with `execute/2` + `apply/2`. Enforces state-dependent invariants only (e.g. `{:error, :already_created}`); returns events on success.
+- `lib/fskick/<context>/events/<past_tense>.ex` — plain struct with `@derive Jason.Encoder`.
+- `lib/fskick/<context>/projectors/<entity>.ex` — `use Commanded.Projections.Ecto` with an explicit `name:` string; writes the read-model row via `Ecto.Multi`.
+- `lib/fskick/<context>/<entity>.ex` — read-model `Ecto.Schema` with `@primary_key {:id, :binary_id, autogenerate: false}`. Written only by the projector; never used for casting user input.
+
+The context generates the aggregate id (`Ecto.UUID.generate/0`) before dispatching, then polls `Repo.get/2` until the projection catches up (timeout returns `{:error, :projection_timeout}`) so callers receive a consistent `{:ok, struct}`.
+
+Aggregates are routed in `Fskick.Router` with `identify/2` (prefix per aggregate, e.g. `prefix: "player-"`) and `dispatch/2`.
+
+Mix tasks for write-side operations live at `lib/mix/tasks/fskick.<context>.<verb>.ex` (e.g. `mix fskick.players.new "Alice"`) and call into the context, not the command/aggregate directly.
+
+**Player concept:** a Player is the canonical participant entity in fskick. Identity is a server-generated `binary_id` (UUID); the only intrinsic attribute today is a `name`, which must be unique across all players. Players are created exactly once — the aggregate rejects re-creation with `{:error, :already_created}` — and there are no update or delete operations yet. The read-model row in `players` is the lookup surface for the rest of the app (e.g. uniqueness checks during command validation); the aggregate stream `player-<uuid>` is the source of truth.
+
 **HTTP stack:** Bandit (not Cowboy)
 
 **Asset pipeline:** esbuild (JS) + Tailwind v4 (CSS), both run as watchers in dev. Only `app.js` and `app.css` bundles are supported — all vendor deps must be imported into those files, never via external `<script src>` or `<link href>` tags.

@@ -66,9 +66,9 @@ defmodule Fskick.MixProject do
       {:jason, "~> 1.2"},
       {:dns_cluster, "~> 0.2.0"},
       {:bandit, "~> 1.5"},
-
       {:commanded, "~> 1.4"},
       {:commanded_eventstore_adapter, "~> 1.4"},
+      {:commanded_ecto_projections, "~> 1.4"},
       {:eventstore, "~> 1.4"}
     ]
   end
