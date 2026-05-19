@@ -5,6 +5,7 @@ defmodule Fskick.Players do
   """
 
   alias Fskick.App
+  alias Fskick.CQRS.Projection
   alias Fskick.Players.Commands.CreatePlayer
   alias Fskick.Players.Player
   alias Fskick.Repo
@@ -14,35 +15,17 @@ defmodule Fskick.Players do
 
   Returns `{:ok, %Player{}}` on success, or:
   - `{:error, %Ecto.Changeset{}}` when the name is blank/invalid or already taken
+  - `{:error, :projection_timeout}` if the read model does not catch up in time
   - `{:error, reason}` for dispatch failures
   """
-  @projection_wait_ms 5_000
-
   def create_player(name) do
     attrs = %{player_id: Ecto.UUID.generate(), name: name}
 
     with {:ok, %CreatePlayer{} = command} <- CreatePlayer.new(attrs),
          :ok <- App.dispatch(command) do
-      await_projection(command.player_id, deadline(@projection_wait_ms))
+      Projection.await(Player, command.player_id)
     end
   end
-
-  defp await_projection(id, deadline) do
-    case Repo.get(Player, id) do
-      %Player{} = player ->
-        {:ok, player}
-
-      nil ->
-        if System.monotonic_time(:millisecond) >= deadline do
-          {:error, :projection_timeout}
-        else
-          Process.sleep(25)
-          await_projection(id, deadline)
-        end
-    end
-  end
-
-  defp deadline(ms), do: System.monotonic_time(:millisecond) + ms
 
   def get_player_by_name(name) when is_binary(name) do
     Repo.get_by(Player, name: name)

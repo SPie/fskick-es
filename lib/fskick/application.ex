@@ -14,6 +14,7 @@ defmodule Fskick.Application do
       {Phoenix.PubSub, name: Fskick.PubSub},
       Fskick.App,
       Fskick.Players.Projectors.Player,
+      Fskick.Seasons.Projectors.Season,
       FskickWeb.Endpoint
     ]
 

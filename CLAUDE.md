@@ -34,6 +34,10 @@ mix ecto.gen.migration migration_name_using_underscores
 mix event_store.setup   # create + init
 mix event_store.reset   # drop + setup
 
+# Write-side mix tasks (CQRS commands)
+mix fskick.players.new "Alice"
+mix fskick.seasons.new "2026"
+
 # Asset build (dev)
 mix assets.build
 ```
@@ -65,13 +69,15 @@ This is a Phoenix 1.8 + LiveView application backed by PostgreSQL via Ecto.
 - `lib/fskick/<context>/projectors/<entity>.ex` — `use Commanded.Projections.Ecto` with an explicit `name:` string; writes the read-model row via `Ecto.Multi`.
 - `lib/fskick/<context>/<entity>.ex` — read-model `Ecto.Schema` with `@primary_key {:id, :binary_id, autogenerate: false}`. Written only by the projector; never used for casting user input.
 
-The context generates the aggregate id (`Ecto.UUID.generate/0`) before dispatching, then polls `Repo.get/2` until the projection catches up (timeout returns `{:error, :projection_timeout}`) so callers receive a consistent `{:ok, struct}`.
+The context generates the aggregate id (`Ecto.UUID.generate/0`) before dispatching, then waits for the projection via `Fskick.CQRS.Projection.await/2` (`lib/fskick/cqrs/projection.ex`), which polls `Repo.get/2` until the row appears or returns `{:error, :projection_timeout}`. Callers receive a consistent `{:ok, struct}`. Use this shared helper instead of re-implementing the polling loop in each context.
 
-Aggregates are routed in `Fskick.Router` with `identify/2` (prefix per aggregate, e.g. `prefix: "player-"`) and `dispatch/2`.
+Aggregates are routed in `Fskick.Router` with `identify/2` (prefix per aggregate, e.g. `prefix: "player-"`, `prefix: "season-"`) and `dispatch/2`.
 
-Mix tasks for write-side operations live at `lib/mix/tasks/fskick.<context>.<verb>.ex` (e.g. `mix fskick.players.new "Alice"`) and call into the context, not the command/aggregate directly.
+Mix tasks for write-side operations live at `lib/mix/tasks/fskick.<context>.<verb>.ex` (e.g. `mix fskick.players.new "Alice"`, `mix fskick.seasons.new "2026"`) and call into the context, not the command/aggregate directly.
 
 **Player concept:** a Player is the canonical participant entity in fskick. Identity is a server-generated `binary_id` (UUID); the only intrinsic attribute today is a `name`, which must be unique across all players. Players are created exactly once — the aggregate rejects re-creation with `{:error, :already_created}` — and there are no update or delete operations yet. The read-model row in `players` is the lookup surface for the rest of the app (e.g. uniqueness checks during command validation); the aggregate stream `player-<uuid>` is the source of truth.
+
+**Season concept:** a Season groups gameplay over a period of time. Identity is a server-generated `binary_id` (UUID); intrinsic attributes today are a `name` (unique across all seasons) and an `active` boolean that defaults to `false`. Newly created seasons are inactive — activation is a separate command (not yet implemented). As with players, seasons are created exactly once and the aggregate rejects re-creation with `{:error, :already_created}`. The read-model row in `seasons` is the lookup surface; the aggregate stream `season-<uuid>` is the source of truth.
 
 **HTTP stack:** Bandit (not Cowboy)
 
