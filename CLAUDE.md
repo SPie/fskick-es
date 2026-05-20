@@ -38,6 +38,9 @@ mix event_store.reset   # drop + setup
 mix fskick.players.new "Alice"
 mix fskick.seasons.new "2026"
 
+# Read-side mix tasks
+mix fskick.seasons.list
+
 # Asset build (dev)
 mix assets.build
 ```

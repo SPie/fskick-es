@@ -38,4 +38,18 @@ defmodule Fskick.SeasonsTest do
       assert {:error, %Ecto.Changeset{}} = Seasons.create_season("   ")
     end
   end
+
+  describe "list_seasons/0" do
+    test "returns an empty list when no seasons exist" do
+      assert Seasons.list_seasons() == []
+    end
+
+    test "returns all seasons ordered by inserted_at ascending" do
+      {:ok, first} = Seasons.create_season("2024")
+      {:ok, second} = Seasons.create_season("2025")
+      {:ok, third} = Seasons.create_season("2026")
+
+      assert [^first, ^second, ^third] = Seasons.list_seasons()
+    end
+  end
 end

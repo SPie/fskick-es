@@ -4,6 +4,8 @@ defmodule Fskick.Seasons do
   read side queries the `Fskick.Seasons.Season` projection.
   """
 
+  import Ecto.Query, only: [from: 2]
+
   alias Fskick.App
   alias Fskick.CQRS.Projection
   alias Fskick.Repo
@@ -31,5 +33,12 @@ defmodule Fskick.Seasons do
 
   def get_season_by_name(name) when is_binary(name) do
     Repo.get_by(Season, name: name)
+  end
+
+  @doc """
+  Return all seasons ordered by creation time (oldest first).
+  """
+  def list_seasons do
+    Repo.all(from s in Season, order_by: [asc: s.inserted_at])
   end
 end
