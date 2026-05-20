@@ -13,6 +13,7 @@ defmodule Fskick.Seasons.Season do
   schema "seasons" do
     field :name, :string
     field :active, :boolean, default: false
+    field :created_at, :utc_datetime_usec
 
     timestamps()
   end

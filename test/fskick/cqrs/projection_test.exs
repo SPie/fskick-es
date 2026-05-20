@@ -7,7 +7,7 @@ defmodule Fskick.CQRS.ProjectionTest do
   describe "await/3" do
     test "returns {:ok, struct} once the row exists" do
       id = Ecto.UUID.generate()
-      Repo.insert!(%Player{id: id, name: "Alice"})
+      Repo.insert!(%Player{id: id, name: "Alice", created_at: DateTime.utc_now()})
 
       assert {:ok, %Player{id: ^id, name: "Alice"}} = Projection.await(Player, id)
     end
@@ -18,7 +18,7 @@ defmodule Fskick.CQRS.ProjectionTest do
       task =
         Task.async(fn ->
           Process.sleep(50)
-          Repo.insert!(%Player{id: id, name: "Bob"})
+          Repo.insert!(%Player{id: id, name: "Bob", created_at: DateTime.utc_now()})
         end)
 
       assert {:ok, %Player{id: ^id}} = Projection.await(Player, id, timeout: 1_000)

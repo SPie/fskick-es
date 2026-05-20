@@ -6,11 +6,12 @@ defmodule Fskick.Seasons.Projectors.Season do
 
   alias Fskick.Seasons.Events.SeasonCreated
 
-  project(%SeasonCreated{season_id: id, name: name, active: active}, _metadata, fn multi ->
+  project(%SeasonCreated{season_id: id, name: name, active: active}, metadata, fn multi ->
     Ecto.Multi.insert(multi, :season, %Fskick.Seasons.Season{
       id: id,
       name: name,
-      active: active
+      active: active,
+      created_at: metadata.created_at
     })
   end)
 end

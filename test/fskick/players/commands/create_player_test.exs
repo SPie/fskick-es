@@ -42,7 +42,11 @@ defmodule Fskick.Players.Commands.CreatePlayerTest do
     end
 
     test "rejects a name already taken in the read model" do
-      Repo.insert!(%Player{id: Ecto.UUID.generate(), name: "Alice"})
+      Repo.insert!(%Player{
+        id: Ecto.UUID.generate(),
+        name: "Alice",
+        created_at: DateTime.utc_now()
+      })
 
       assert {:error, changeset} =
                CreatePlayer.new(%{player_id: Ecto.UUID.generate(), name: "Alice"})
@@ -51,7 +55,11 @@ defmodule Fskick.Players.Commands.CreatePlayerTest do
     end
 
     test "rejects a name already taken after trimming" do
-      Repo.insert!(%Player{id: Ecto.UUID.generate(), name: "Alice"})
+      Repo.insert!(%Player{
+        id: Ecto.UUID.generate(),
+        name: "Alice",
+        created_at: DateTime.utc_now()
+      })
 
       assert {:error, changeset} =
                CreatePlayer.new(%{player_id: Ecto.UUID.generate(), name: "  Alice  "})

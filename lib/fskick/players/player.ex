@@ -12,6 +12,7 @@ defmodule Fskick.Players.Player do
   @primary_key {:id, :binary_id, autogenerate: false}
   schema "players" do
     field :name, :string
+    field :created_at, :utc_datetime_usec
 
     timestamps()
   end

@@ -42,7 +42,11 @@ defmodule Fskick.Seasons.Commands.CreateSeasonTest do
     end
 
     test "rejects a name already taken in the read model" do
-      Repo.insert!(%Season{id: Ecto.UUID.generate(), name: "2026"})
+      Repo.insert!(%Season{
+        id: Ecto.UUID.generate(),
+        name: "2026",
+        created_at: DateTime.utc_now()
+      })
 
       assert {:error, changeset} =
                CreateSeason.new(%{season_id: Ecto.UUID.generate(), name: "2026"})
@@ -51,7 +55,11 @@ defmodule Fskick.Seasons.Commands.CreateSeasonTest do
     end
 
     test "rejects a name already taken after trimming" do
-      Repo.insert!(%Season{id: Ecto.UUID.generate(), name: "2026"})
+      Repo.insert!(%Season{
+        id: Ecto.UUID.generate(),
+        name: "2026",
+        created_at: DateTime.utc_now()
+      })
 
       assert {:error, changeset} =
                CreateSeason.new(%{season_id: Ecto.UUID.generate(), name: "  2026  "})

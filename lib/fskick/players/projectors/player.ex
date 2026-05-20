@@ -6,7 +6,11 @@ defmodule Fskick.Players.Projectors.Player do
 
   alias Fskick.Players.Events.PlayerCreated
 
-  project(%PlayerCreated{player_id: id, name: name}, _metadata, fn multi ->
-    Ecto.Multi.insert(multi, :player, %Fskick.Players.Player{id: id, name: name})
+  project(%PlayerCreated{player_id: id, name: name}, metadata, fn multi ->
+    Ecto.Multi.insert(multi, :player, %Fskick.Players.Player{
+      id: id,
+      name: name,
+      created_at: metadata.created_at
+    })
   end)
 end
