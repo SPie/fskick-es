@@ -1,6 +1,8 @@
 defmodule Fskick.CQRS.ProjectionTest do
   use Fskick.DataCase, async: true
 
+  import Ecto.Query, only: [from: 2]
+
   alias Fskick.CQRS.Projection
   alias Fskick.Players.Player
 
@@ -29,6 +31,30 @@ defmodule Fskick.CQRS.ProjectionTest do
     test "returns {:error, :projection_timeout} when the row never appears" do
       assert {:error, :projection_timeout} =
                Projection.await(Player, Ecto.UUID.generate(), timeout: 50)
+    end
+
+    test "with :match returns the row only when the predicate is satisfied" do
+      id = Ecto.UUID.generate()
+      Repo.insert!(%Player{id: id, name: "Alice", created_at: DateTime.utc_now()})
+
+      task =
+        Task.async(fn ->
+          Process.sleep(50)
+          Repo.update_all(from(p in Player, where: p.id == ^id), set: [name: "Bob"])
+        end)
+
+      assert {:ok, %Player{name: "Bob"}} =
+               Projection.await(Player, id, timeout: 1_000, match: &(&1.name == "Bob"))
+
+      Task.await(task)
+    end
+
+    test "with :match returns {:error, :projection_timeout} when the predicate never holds" do
+      id = Ecto.UUID.generate()
+      Repo.insert!(%Player{id: id, name: "Alice", created_at: DateTime.utc_now()})
+
+      assert {:error, :projection_timeout} =
+               Projection.await(Player, id, timeout: 50, match: &(&1.name == "Bob"))
     end
   end
 end

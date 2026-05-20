@@ -37,6 +37,7 @@ mix event_store.reset   # drop + setup
 # Write-side mix tasks (CQRS commands)
 mix fskick.players.new "Alice"
 mix fskick.seasons.new "2026"
+mix fskick.seasons.activate "2026"
 
 # Read-side mix tasks
 mix fskick.seasons.list
@@ -69,18 +70,23 @@ This is a Phoenix 1.8 + LiveView application backed by PostgreSQL via Ecto.
 - `lib/fskick/<context>/commands/<verb>_<entity>.ex` — command as an embedded Ecto schema with `new/1` returning `{:ok, command} | {:error, changeset}`. Structural validation lives here: presence, trimming/formatting, and cross-aggregate uniqueness checks against the read model.
 - `lib/fskick/<context>/aggregates/<entity>.ex` — aggregate root with `execute/2` + `apply/2`. Enforces state-dependent invariants only (e.g. `{:error, :already_created}`); returns events on success.
 - `lib/fskick/<context>/events/<past_tense>.ex` — plain struct with `@derive Jason.Encoder`.
-- `lib/fskick/<context>/projectors/<entity>.ex` — `use Commanded.Projections.Ecto` with an explicit `name:` string; writes the read-model row via `Ecto.Multi`.
+- `lib/fskick/<context>/projectors/<entity>.ex` — `use Commanded.Projections.Ecto` with an explicit `name:` string; writes the read-model row via `Ecto.Multi`. All writes must stay inside the `Multi` returned to `project/3` so they commit atomically with Commanded's `projection_versions` advance — never reach out to `Repo.update_all/3` directly.
+- `lib/fskick/<context>/process_managers/<name>.ex` — `use Commanded.ProcessManagers.ProcessManager` with an explicit `name:` string. Enforces **cross-aggregate invariants** by reacting to events and dispatching commands. Its `defstruct` state **must** carry `@derive Jason.Encoder` because Commanded snapshots PM state to the event store as JSON. Supervise the PM in `Fskick.Application` alongside the projectors.
 - `lib/fskick/<context>/<entity>.ex` — read-model `Ecto.Schema` with `@primary_key {:id, :binary_id, autogenerate: false}`. Written only by the projector; never used for casting user input.
 
-The context generates the aggregate id (`Ecto.UUID.generate/0`) before dispatching, then waits for the projection via `Fskick.CQRS.Projection.await/2` (`lib/fskick/cqrs/projection.ex`), which polls `Repo.get/2` until the row appears or returns `{:error, :projection_timeout}`. Callers receive a consistent `{:ok, struct}`. Use this shared helper instead of re-implementing the polling loop in each context.
+The context generates the aggregate id (`Ecto.UUID.generate/0`) before dispatching, then waits for the projection via `Fskick.CQRS.Projection.await/3` (`lib/fskick/cqrs/projection.ex`), which polls `Repo.get/2` until the row appears or returns `{:error, :projection_timeout}`. Callers receive a consistent `{:ok, struct}`. Pass `match: predicate_fn` to wait for a row that *already exists* to satisfy a condition (e.g. `match: & &1.active` when waiting for an update to land). Use this shared helper instead of re-implementing the polling loop in each context.
 
 Aggregates are routed in `Fskick.Router` with `identify/2` (prefix per aggregate, e.g. `prefix: "player-"`, `prefix: "season-"`) and `dispatch/2`.
 
-Mix tasks for write-side operations live at `lib/mix/tasks/fskick.<context>.<verb>.ex` (e.g. `mix fskick.players.new "Alice"`, `mix fskick.seasons.new "2026"`) and call into the context, not the command/aggregate directly.
+Mix tasks for write-side operations live at `lib/mix/tasks/fskick.<context>.<verb>.ex` (e.g. `mix fskick.players.new "Alice"`, `mix fskick.seasons.new "2026"`, `mix fskick.seasons.activate "2026"`) and call into the context, not the command/aggregate directly.
 
 **Player concept:** a Player is the canonical participant entity in fskick. Identity is a server-generated `binary_id` (UUID); the only intrinsic attribute today is a `name`, which must be unique across all players. Players are created exactly once — the aggregate rejects re-creation with `{:error, :already_created}` — and there are no update or delete operations yet. The read-model row in `players` is the lookup surface for the rest of the app (e.g. uniqueness checks during command validation); the aggregate stream `player-<uuid>` is the source of truth.
 
-**Season concept:** a Season groups gameplay over a period of time. Identity is a server-generated `binary_id` (UUID); intrinsic attributes today are a `name` (unique across all seasons) and an `active` boolean that defaults to `false`. Newly created seasons are inactive — activation is a separate command (not yet implemented). As with players, seasons are created exactly once and the aggregate rejects re-creation with `{:error, :already_created}`. The read-model row in `seasons` is the lookup surface; the aggregate stream `season-<uuid>` is the source of truth.
+**Season concept:** a Season groups gameplay over a period of time. Identity is a server-generated `binary_id` (UUID); intrinsic attributes today are a `name` (unique across all seasons) and an `active` boolean that defaults to `false`. As with players, seasons are created exactly once and the aggregate rejects re-creation with `{:error, :already_created}`. The read-model row in `seasons` is the lookup surface; the aggregate stream `season-<uuid>` is the source of truth.
+
+**Season activation:** `mix fskick.seasons.activate "2026"` calls `Fskick.Seasons.activate_season/1`, which resolves the name to a UUID via the read model and dispatches `ActivateSeason`. The aggregate enforces state-dependent invariants — `{:error, :not_found}` when the season has never been created, `{:error, :already_active}` when it is already active — and emits a `SeasonActivated` event on success; the symmetric `DeactivateSeason` command yields `{:error, :already_inactive}` / `SeasonDeactivated`. Activating an already-active season is a **silent no-op success** at the context layer (it short-circuits before dispatching). The cross-aggregate invariant **"at most one active season"** is enforced by `Fskick.Seasons.ProcessManagers.SoleActiveSeason` (`lib/fskick/seasons/process_managers/sole_active_season.ex`), a singleton process manager (identity `"sole-active-season"`) that listens for `SeasonActivated` and, when a different season was previously active, dispatches `DeactivateSeason` for it. Zero active seasons is allowed. The context waits for both projection updates (target → active, previous → inactive) before returning, using `Projection.await/3`'s `:match` predicate.
+
+The PM uses `interested?(%SeasonActivated{}) → {:start, "sole-active-season"}` (idempotent start, **not** `:start!` — that variant raises if the instance already exists and breaks on replay) and `interested?(%SeasonDeactivated{}) → {:continue, "sole-active-season"}`. Its `defstruct` carries `@derive Jason.Encoder` so Commanded can snapshot it.
 
 **HTTP stack:** Bandit (not Cowboy)
 
