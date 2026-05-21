@@ -1,6 +1,8 @@
 defmodule Fskick.Router do
   use Commanded.Commands.Router
 
+  alias Fskick.Games.Aggregates.Game
+  alias Fskick.Games.Commands.CreateGame
   alias Fskick.Players.Aggregates.Player
   alias Fskick.Players.Commands.CreatePlayer
   alias Fskick.Seasons.Aggregates.Season
@@ -13,4 +15,7 @@ defmodule Fskick.Router do
 
   identify(Season, by: :season_id, prefix: "season-")
   dispatch([CreateSeason, ActivateSeason, DeactivateSeason], to: Season)
+
+  identify(Game, by: :game_id, prefix: "game-")
+  dispatch([CreateGame], to: Game)
 end
