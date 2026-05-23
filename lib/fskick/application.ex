@@ -16,7 +16,7 @@ defmodule Fskick.Application do
       Fskick.Players.Projectors.Player,
       Fskick.Seasons.Projectors.Season,
       Fskick.Seasons.ProcessManagers.SoleActiveSeason,
-      Fskick.Games.Projectors.Game,
+      Fskick.Games.Projectors.PlayerStats,
       FskickWeb.Endpoint
     ]
 

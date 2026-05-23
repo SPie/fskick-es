@@ -17,7 +17,7 @@ defmodule Fskick.Games.Aggregates.Game do
       played_at: command.played_at,
       team_a: command.team_a,
       team_b: command.team_b,
-      outcome: command.outcome
+      outcome: Atom.to_string(command.outcome)
     }
   end
 

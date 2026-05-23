@@ -13,6 +13,7 @@ defmodule Fskick.Games do
 
   alias Fskick.App
   alias Fskick.Games.Commands.CreateGame
+  alias Fskick.Games.GameCount
   alias Fskick.Players.Player
   alias Fskick.Repo
   alias Fskick.Seasons
@@ -86,4 +87,17 @@ defmodule Fskick.Games do
   end
 
   defp trim(value) when is_binary(value), do: String.trim(value)
+
+  @doc """
+  Returns the total number of games recorded across all seasons.
+
+  Reads from the singleton `game_counts` row maintained by
+  `Fskick.Games.Projectors.PlayerStats`.
+  """
+  def total_games_count() do
+    case Repo.get(GameCount, 1) do
+      nil -> 0
+      %GameCount{total: total} -> total
+    end
+  end
 end

@@ -49,7 +49,7 @@ if config_env() == :prod do
       """
 
   config :fskick, Fskick.EventStore,
-    serializer: EventStore.JsonSerializer,
+    serializer: Fskick.EventStore.JsonSerializer,
     url: event_store_url,
     pool_size: String.to_integer(System.get_env("EVENT_STORE_POOL_SIZE") || "10")
 

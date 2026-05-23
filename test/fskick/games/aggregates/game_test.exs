@@ -22,7 +22,7 @@ defmodule Fskick.Games.Aggregates.GameTest do
                played_at: played_at,
                team_a: team_a,
                team_b: team_b,
-               outcome: :team_a_won
+               outcome: "team_a_won"
              } = Game.execute(%Game{}, cmd)
 
       assert game_id == cmd.game_id
@@ -48,7 +48,7 @@ defmodule Fskick.Games.Aggregates.GameTest do
         played_at: DateTime.utc_now(),
         team_a: [Ecto.UUID.generate()],
         team_b: [Ecto.UUID.generate()],
-        outcome: :draw
+        outcome: "draw"
       }
 
       assert %Game{
@@ -57,7 +57,7 @@ defmodule Fskick.Games.Aggregates.GameTest do
                played_at: played_at,
                team_a: team_a,
                team_b: team_b,
-               outcome: :draw
+               outcome: "draw"
              } = Game.apply(%Game{}, event)
 
       assert game_id == event.game_id

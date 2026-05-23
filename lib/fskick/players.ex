@@ -1,14 +1,22 @@
 defmodule Fskick.Players do
   @moduledoc """
   Players context: write side dispatches commands through `Fskick.App`;
-  read side queries the `Fskick.Players.Player` projection.
+  read side queries the `Fskick.Players.Player` projection and, for
+  rankings, joins with `Fskick.Games.PlayerStats`.
   """
+
+  import Ecto.Query, only: [from: 2]
 
   alias Fskick.App
   alias Fskick.CQRS.Projection
+  alias Fskick.Games
+  alias Fskick.Games.PlayerStats
   alias Fskick.Players.Commands.CreatePlayer
   alias Fskick.Players.Player
+  alias Fskick.Players.PlayerStat
   alias Fskick.Repo
+
+  @valid_sorts [:points, :wins, :games, :win_ratio]
 
   @doc """
   Create a new player with the given name.
@@ -29,5 +37,93 @@ defmodule Fskick.Players do
 
   def get_player_by_name(name) when is_binary(name) do
     Repo.get_by(Player, name: name)
+  end
+
+  @doc """
+  Returns a ranked list of `%Fskick.Players.PlayerStat{}` rows for every
+  player who has played at least one game.
+
+  Derivations:
+  - `points = wins * 3 / max(games, div(max_games_across_players, 2))`
+  - `win_ratio = wins / games`
+  - `games_ratio = games / total_games`
+
+  A `:draw` outcome counts as a win for both teams (handled by the
+  projector).
+
+  ## Options
+
+  - `:sort` — one of `#{inspect(@valid_sorts)}`. Defaults to `:points`.
+    Sort is descending; `:games` is used as a tiebreaker. Players sharing
+    the primary sort value share a position.
+  """
+  def list_player_stats(opts \\ []) do
+    sort = Keyword.get(opts, :sort, :points)
+
+    unless sort in @valid_sorts do
+      raise ArgumentError,
+            "invalid sort: #{inspect(sort)}; expected one of #{inspect(@valid_sorts)}"
+    end
+
+    total_games = Games.total_games_count()
+
+    rows =
+      Repo.all(
+        from s in PlayerStats,
+          join: p in Player,
+          on: p.id == s.player_id,
+          select: %{name: p.name, wins: s.wins, games: s.games}
+      )
+
+    max_games = Enum.reduce(rows, 0, fn row, acc -> max(row.games, acc) end)
+
+    rows
+    |> Enum.map(&derive(&1, total_games, max_games))
+    |> Enum.sort_by(&sort_key(&1, sort), :desc)
+    |> assign_positions(sort)
+  end
+
+  defp derive(%{name: name, wins: wins, games: games}, total_games, max_games) do
+    %PlayerStat{
+      name: name,
+      wins: wins,
+      games: games,
+      points: points(wins, games, max_games),
+      win_ratio: ratio(wins, games),
+      games_ratio: ratio(games, total_games)
+    }
+  end
+
+  defp points(_wins, 0, _max_games), do: 0.0
+
+  defp points(wins, games, max_games) do
+    divisor = max(games, div(max_games, 2))
+    wins * 3 / divisor
+  end
+
+  defp ratio(_num, 0), do: 0
+  defp ratio(num, denom), do: num / denom * 100
+
+  defp sort_key(stat, :points), do: {stat.points, stat.games}
+  defp sort_key(stat, :wins), do: {stat.wins, stat.games}
+  defp sort_key(stat, :games), do: {stat.games, stat.wins}
+  defp sort_key(stat, :win_ratio), do: {stat.win_ratio, stat.games}
+
+  defp position_value(stat, :points), do: stat.points
+  defp position_value(stat, :wins), do: stat.wins
+  defp position_value(stat, :games), do: stat.games
+  defp position_value(stat, :win_ratio), do: stat.win_ratio
+
+  defp assign_positions(sorted, sort) do
+    {result, _acc} =
+      sorted
+      |> Enum.with_index(1)
+      |> Enum.map_reduce({nil, 1}, fn {%PlayerStat{} = stat, idx}, {prev_value, prev_pos} ->
+        value = position_value(stat, sort)
+        position = if value == prev_value, do: prev_pos, else: idx
+        {%PlayerStat{stat | position: position}, {value, position}}
+      end)
+
+    result
   end
 end

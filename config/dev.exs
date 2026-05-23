@@ -12,7 +12,7 @@ config :fskick, Fskick.Repo,
   pool_size: 10
 
 config :fskick, Fskick.EventStore,
-  serializer: EventStore.JsonSerializer,
+  serializer: Fskick.EventStore.JsonSerializer,
   username: "postgres",
   password: "postgres",
   hostname: "localhost",
