@@ -56,24 +56,25 @@ defmodule Fskick.Players do
   - `:sort` — one of `#{inspect(@valid_sorts)}`. Defaults to `:points`.
     Sort is descending; `:games` is used as a tiebreaker. Players sharing
     the primary sort value share a position.
+  - `:season_id` — when present, scopes the stats to a single season:
+    rows come from `Fskick.Games.PlayerStats` filtered to that season,
+    and `games_ratio` is `games / season_total_games`. When omitted,
+    rows are aggregated across all seasons via `GROUP BY player_id` and
+    `games_ratio` is `games / all_time_total_games`. Defaults to
+    all-time.
   """
   def list_player_stats(opts \\ []) do
     sort = Keyword.get(opts, :sort, :points)
+    validate_sort!(sort)
 
-    unless sort in @valid_sorts do
-      raise ArgumentError,
-            "invalid sort: #{inspect(sort)}; expected one of #{inspect(@valid_sorts)}"
-    end
+    {rows, total_games} =
+      case Keyword.fetch(opts, :season_id) do
+        {:ok, season_id} ->
+          {load_season_rows(season_id), Games.season_game_count(season_id)}
 
-    total_games = Games.total_games_count()
-
-    rows =
-      Repo.all(
-        from s in PlayerStats,
-          join: p in Player,
-          on: p.id == s.player_id,
-          select: %{name: p.name, wins: s.wins, games: s.games}
-      )
+        :error ->
+          {load_all_time_rows(), Games.total_games_count()}
+      end
 
     max_games = Enum.reduce(rows, 0, fn row, acc -> max(row.games, acc) end)
 
@@ -81,6 +82,37 @@ defmodule Fskick.Players do
     |> Enum.map(&derive(&1, total_games, max_games))
     |> Enum.sort_by(&sort_key(&1, sort), :desc)
     |> assign_positions(sort)
+  end
+
+  defp validate_sort!(sort) do
+    unless sort in @valid_sorts do
+      raise ArgumentError,
+            "invalid sort: #{inspect(sort)}; expected one of #{inspect(@valid_sorts)}"
+    end
+  end
+
+  defp load_all_time_rows() do
+    Repo.all(
+      from s in PlayerStats,
+        join: p in Player,
+        on: p.id == s.player_id,
+        group_by: [s.player_id, p.name],
+        select: %{
+          name: p.name,
+          wins: type(sum(s.wins), :integer),
+          games: type(sum(s.games), :integer)
+        }
+    )
+  end
+
+  defp load_season_rows(season_id) do
+    Repo.all(
+      from s in PlayerStats,
+        join: p in Player,
+        on: p.id == s.player_id,
+        where: s.season_id == ^season_id,
+        select: %{name: p.name, wins: s.wins, games: s.games}
+    )
   end
 
   defp derive(%{name: name, wins: wins, games: games}, total_games, max_games) do

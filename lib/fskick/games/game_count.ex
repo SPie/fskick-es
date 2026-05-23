@@ -1,13 +1,15 @@
 defmodule Fskick.Games.GameCount do
   @moduledoc """
-  Singleton read-model row holding the total number of games recorded.
-  The migration seeds the single row with `id: 1, total: 0`; the
-  projector increments `total` on every `GameCreated`.
+  Read-model row holding the total number of games recorded for a single
+  season. The projector creates the row lazily on the first `GameCreated`
+  for a season and increments `total` on every subsequent one.
+
+  All-time totals are derived by `SUM(total)` across all rows.
   """
 
   use Ecto.Schema
 
-  @primary_key {:id, :integer, autogenerate: false}
+  @primary_key {:season_id, :binary_id, autogenerate: false}
   schema "game_counts" do
     field :total, :integer, default: 0
   end

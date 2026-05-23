@@ -2,7 +2,7 @@ defmodule Fskick.Games do
   @moduledoc """
   Games context: write side dispatches `CreateGame` commands through
   `Fskick.App`, then waits for the `PlayerStats` projector to advance
-  the singleton `game_counts` row so the read model is consistent on
+  the per-season `game_counts` row so the read model is consistent on
   return.
 
   Player names and the season name are resolved against their existing
@@ -38,11 +38,10 @@ defmodule Fskick.Games do
   - `{:error, reason}` for dispatch failures
   """
   def create_game(attrs) when is_map(attrs) do
-    before_count = total_games_count()
-
     with {:ok, season} <- resolve_season(Map.get(attrs, :season_name)),
          {:ok, team_a_ids} <- resolve_players(Map.get(attrs, :team_a_names, [])),
          {:ok, team_b_ids} <- resolve_players(Map.get(attrs, :team_b_names, [])),
+         before_count = season_game_count(season.id),
          {:ok, %CreateGame{} = command} <-
            CreateGame.new(%{
              game_id: Ecto.UUID.generate(),
@@ -54,7 +53,7 @@ defmodule Fskick.Games do
            }),
          :ok <- App.dispatch(command),
          {:ok, _} <-
-           Projection.await(GameCount, 1, match: &(&1.total > before_count)) do
+           Projection.await(GameCount, season.id, match: &(&1.total > before_count)) do
       {:ok, command}
     end
   end
@@ -97,11 +96,23 @@ defmodule Fskick.Games do
   @doc """
   Returns the total number of games recorded across all seasons.
 
-  Reads from the singleton `game_counts` row maintained by
-  `Fskick.Games.Projectors.PlayerStats`.
+  Derived from the per-season `game_counts` rows maintained by
+  `Fskick.Games.Projectors.PlayerStats` — `SUM(total)` across every
+  season that has had at least one game.
   """
   def total_games_count() do
-    case Repo.get(GameCount, 1) do
+    Repo.aggregate(GameCount, :sum, :total) || 0
+  end
+
+  @doc """
+  Returns the number of games recorded in the given season.
+
+  Reads from the `game_counts` row keyed on `season_id`. Returns `0`
+  when the season has had no games (the projector creates the row
+  lazily on first game).
+  """
+  def season_game_count(season_id) do
+    case Repo.get(GameCount, season_id) do
       nil -> 0
       %GameCount{total: total} -> total
     end

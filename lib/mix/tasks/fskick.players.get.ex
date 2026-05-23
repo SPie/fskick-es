@@ -19,6 +19,7 @@ defmodule Mix.Tasks.Fskick.Players.Get do
 
   use Mix.Task
 
+  alias Fskick.CLI.PlayerStatsTable
   alias Fskick.Games
   alias Fskick.Players
 
@@ -57,7 +58,7 @@ defmodule Mix.Tasks.Fskick.Players.Get do
 
     total_games = Games.total_games_count()
 
-    render(stats, total_games)
+    Mix.shell().info(PlayerStatsTable.render(stats, total_games))
   end
 
   defp resolve_sort(nil), do: :points
@@ -76,42 +77,6 @@ defmodule Mix.Tasks.Fskick.Players.Get do
 
   defp filter_by_name(stats, nil), do: stats
   defp filter_by_name(stats, name), do: Enum.filter(stats, &(&1.name == name))
-
-  defp render(stats, total_games) do
-    headers = [
-      "Position (#{length(stats)})",
-      "Name",
-      "Points",
-      "Wins",
-      "Games (#{total_games})",
-    ]
-
-    rows =
-      for stat <- stats do
-        [
-          Integer.to_string(stat.position),
-          stat.name,
-          format_float(stat.points),
-          "#{Integer.to_string(stat.wins)} (#{format_float(stat.win_ratio)}%)",
-          "#{Integer.to_string(stat.games)} (#{format_float(stat.games_ratio)}%)",
-        ]
-      end
-
-    table =
-      rows
-      |> TableRex.Table.new(headers)
-      |> TableRex.Table.render!()
-
-    Mix.shell().info(table)
-  end
-
-  defp format_float(value) when is_float(value) do
-    :erlang.float_to_binary(value, decimals: 2)
-  end
-
-  defp format_float(value) when is_integer(value) do
-    :erlang.float_to_binary(value * 1.0, decimals: 2)
-  end
 
   defp usage() do
     "Usage: mix fskick.players.get [name] [--sort points|wins|games|win_ratio]"
