@@ -1,8 +1,9 @@
 defmodule Fskick.Games do
   @moduledoc """
   Games context: write side dispatches `CreateGame` commands through
-  `Fskick.App`. There is no read model yet — the source of truth is
-  the aggregate stream `game-<uuid>` in `Fskick.EventStore`.
+  `Fskick.App`, then waits for the `PlayerStats` projector to advance
+  the singleton `game_counts` row so the read model is consistent on
+  return.
 
   Player names and the season name are resolved against their existing
   read models before the command is built, so the command carries
@@ -12,6 +13,7 @@ defmodule Fskick.Games do
   import Ecto.Query, only: [from: 2]
 
   alias Fskick.App
+  alias Fskick.CQRS.Projection
   alias Fskick.Games.Commands.CreateGame
   alias Fskick.Games.GameCount
   alias Fskick.Players.Player
@@ -36,6 +38,8 @@ defmodule Fskick.Games do
   - `{:error, reason}` for dispatch failures
   """
   def create_game(attrs) when is_map(attrs) do
+    before_count = total_games_count()
+
     with {:ok, season} <- resolve_season(Map.get(attrs, :season_name)),
          {:ok, team_a_ids} <- resolve_players(Map.get(attrs, :team_a_names, [])),
          {:ok, team_b_ids} <- resolve_players(Map.get(attrs, :team_b_names, [])),
@@ -48,7 +52,9 @@ defmodule Fskick.Games do
              team_b: team_b_ids,
              outcome: Map.get(attrs, :outcome)
            }),
-         :ok <- App.dispatch(command) do
+         :ok <- App.dispatch(command),
+         {:ok, _} <-
+           Projection.await(GameCount, 1, match: &(&1.total > before_count)) do
       {:ok, command}
     end
   end
