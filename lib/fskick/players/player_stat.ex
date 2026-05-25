@@ -10,6 +10,7 @@ defmodule Fskick.Players.PlayerStat do
 
   defstruct [
     :position,
+    :player_id,
     :name,
     :wins,
     :games,

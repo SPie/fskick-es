@@ -98,6 +98,7 @@ defmodule Fskick.Players do
         on: p.id == s.player_id,
         group_by: [s.player_id, p.name],
         select: %{
+          player_id: s.player_id,
           name: p.name,
           wins: type(sum(s.wins), :integer),
           games: type(sum(s.games), :integer)
@@ -111,12 +112,22 @@ defmodule Fskick.Players do
         join: p in Player,
         on: p.id == s.player_id,
         where: s.season_id == ^season_id,
-        select: %{name: p.name, wins: s.wins, games: s.games}
+        select: %{
+          player_id: s.player_id,
+          name: p.name,
+          wins: s.wins,
+          games: s.games
+        }
     )
   end
 
-  defp derive(%{name: name, wins: wins, games: games}, total_games, max_games) do
+  defp derive(
+         %{player_id: player_id, name: name, wins: wins, games: games},
+         total_games,
+         max_games
+       ) do
     %PlayerStat{
+      player_id: player_id,
       name: name,
       wins: wins,
       games: games,
