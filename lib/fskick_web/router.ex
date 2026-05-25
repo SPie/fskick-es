@@ -17,7 +17,8 @@ defmodule FskickWeb.Router do
   scope "/", FskickWeb do
     pipe_through :browser
 
-    get "/", PageController, :home
+    live "/", HomeLive, :home
+    live "/imprint", ImprintLive, :show
   end
 
   # Other scopes may use custom stacks.

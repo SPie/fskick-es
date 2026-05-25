@@ -6,6 +6,24 @@
 @source "../js";
 @source "../../lib/fskick_web";
 
+/* Ported from the old Go app's tailwind.config.js so that the same class
+   names (bg-black, bg-gray-900, from-gray-300, text-gray-100, etc.) resolve
+   to the same hex values. */
+@theme {
+  --color-black: #181818;
+  --color-gray-100: #BBBBBB;
+  --color-gray-200: #3A3A3A;
+  --color-gray-300: #383838;
+  --color-gray-400: #363636;
+  --color-gray-500: #343434;
+  --color-gray-600: #323232;
+  --color-gray-700: #303030;
+  --color-gray-800: #2e2e2e;
+  --color-gray-900: #2d2d2d;
+  --color-green: #15803d;
+  --color-red: #b91c1c;
+}
+
 /* A Tailwind plugin that makes "hero-#{ICON}" classes available.
    The heroicons installation itself is managed by your mix.exs */
 @plugin "../vendor/heroicons";
