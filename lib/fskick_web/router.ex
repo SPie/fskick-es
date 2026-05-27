@@ -18,6 +18,7 @@ defmodule FskickWeb.Router do
     pipe_through :browser
 
     live "/", HomeLive, :home
+    live "/players", PlayersLive, :index
     live "/imprint", ImprintLive, :show
   end
 

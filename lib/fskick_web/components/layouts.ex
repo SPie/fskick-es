@@ -39,7 +39,7 @@ defmodule FskickWeb.Layouts do
             </div>
             <div class="ml-10 flex items-baseline md:space-x-4 text-sm md:text-xl font-medium w-full">
               <.link navigate={~p"/"} class="pr-3 py-2 rounded-md">Seasons</.link>
-              <.link navigate="/players" class="pr-3 py-2 rounded-md">Players</.link>
+              <.link navigate={~p"/players"} class="pr-3 py-2 rounded-md">Players</.link>
               <.link navigate="/streaks" class="pr-3 py-2 rounded-md">Streaks</.link>
             </div>
           </div>
