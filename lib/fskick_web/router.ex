@@ -19,6 +19,7 @@ defmodule FskickWeb.Router do
 
     live "/", HomeLive, :home
     live "/players", PlayersLive, :index
+    live "/players/:id", PlayerDetailLive, :show
     live "/imprint", ImprintLive, :show
   end
 

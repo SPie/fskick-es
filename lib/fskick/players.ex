@@ -39,6 +39,13 @@ defmodule Fskick.Players do
     Repo.get_by(Player, name: name)
   end
 
+  def get_player(id) when is_binary(id) do
+    case Ecto.UUID.cast(id) do
+      {:ok, uuid} -> Repo.get(Player, uuid)
+      :error -> nil
+    end
+  end
+
   @doc """
   Returns a ranked list of `%Fskick.Players.PlayerStat{}` rows for every
   player who has played at least one game.
