@@ -1,9 +1,11 @@
 defmodule FskickWeb.PlayerDetailLive do
   use FskickWeb, :live_view
   import FskickWeb.Components.PlayerStatsTable
+  import FskickWeb.Components.Streak
 
   alias Fskick.Games
   alias Fskick.Players
+  alias Fskick.Streaks
 
   @allowed_sorts ~w(points wins games win_ratio)
 
@@ -19,7 +21,8 @@ defmodule FskickWeb.PlayerDetailLive do
         {:ok,
          socket
          |> assign(player: player, sort: :points)
-         |> load_stats()}
+         |> load_stats()
+         |> load_streak()}
     end
   end
 
@@ -41,6 +44,16 @@ defmodule FskickWeb.PlayerDetailLive do
     assign(socket, stats: stats, games_count: Games.total_games_count())
   end
 
+  defp load_streak(socket) do
+    player_id = socket.assigns.player.id
+
+    assign(socket,
+      last_results: Streaks.last_results(player_id, 5),
+      longest_win: Streaks.longest_streak(player_id, :win),
+      longest_loss: Streaks.longest_streak(player_id, :loss)
+    )
+  end
+
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash}>
@@ -52,6 +65,23 @@ defmodule FskickWeb.PlayerDetailLive do
 
           <div>
             <.player_stats_table stats={@stats} games_count={@games_count} sort={@sort} />
+          </div>
+        </div>
+
+        <div class="my-5">
+          <h3 class="text-left text-sm md:text-xl font-bold">Streak</h3>
+
+          <div class="my-5 flex space-x-4 justify-center">
+            <.streak_circles results={@last_results} />
+          </div>
+
+          <div class="my-5">
+            <h4 class="text-left font-bold">Longest Streaks</h4>
+
+            <div class="my-3 px-6">
+              <div class="my-2">{@longest_win} won games</div>
+              <div class="my-2">{@longest_loss} lost games</div>
+            </div>
           </div>
         </div>
       </div>
