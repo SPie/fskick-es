@@ -17,6 +17,7 @@ defmodule Fskick.Games.PlayerResult do
     field :game_id, :binary_id, primary_key: true
     field :season_id, :binary_id
     field :played_at, :utc_datetime_usec
+    field :team, :string
     field :won, :boolean
   end
 end

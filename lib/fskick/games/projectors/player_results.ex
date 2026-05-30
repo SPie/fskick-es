@@ -28,8 +28,8 @@ defmodule Fskick.Games.Projectors.PlayerResults do
     played_at = coerce_datetime(event.played_at)
 
     multi
-    |> insert_results(:team_a, event.team_a, event, played_at, team_a_won)
-    |> insert_results(:team_b, event.team_b, event, played_at, team_b_won)
+    |> insert_results(:team_a, "a", event.team_a, event, played_at, team_a_won)
+    |> insert_results(:team_b, "b", event.team_b, event, played_at, team_b_won)
   end)
 
   defp coerce_datetime(%DateTime{} = dt), do: dt
@@ -44,7 +44,7 @@ defmodule Fskick.Games.Projectors.PlayerResults do
   defp won?("draw", _team), do: true
   defp won?(_outcome, _team), do: false
 
-  defp insert_results(multi, tag, player_ids, event, played_at, won) do
+  defp insert_results(multi, tag, team, player_ids, event, played_at, won) do
     player_ids
     |> Enum.with_index()
     |> Enum.reduce(multi, fn {player_id, idx}, acc ->
@@ -56,6 +56,7 @@ defmodule Fskick.Games.Projectors.PlayerResults do
           game_id: event.game_id,
           season_id: event.season_id,
           played_at: played_at,
+          team: team,
           won: won
         },
         on_conflict: :nothing,

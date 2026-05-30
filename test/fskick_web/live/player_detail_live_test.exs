@@ -21,6 +21,7 @@ defmodule FskickWeb.PlayerDetailLiveTest do
     assert html =~ "Longest Streaks"
     assert html =~ "won games"
     assert html =~ "lost games"
+    assert html =~ "Favorite Team"
   end
 
   test "redirects to /players when the UUID matches no player", %{conn: conn} do

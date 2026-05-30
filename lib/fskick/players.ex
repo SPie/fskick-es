@@ -10,6 +10,7 @@ defmodule Fskick.Players do
   alias Fskick.App
   alias Fskick.CQRS.Projection
   alias Fskick.Games
+  alias Fskick.Games.PlayerResult
   alias Fskick.Games.PlayerStats
   alias Fskick.Players.Commands.CreatePlayer
   alias Fskick.Players.Player
@@ -91,6 +92,48 @@ defmodule Fskick.Players do
     |> assign_positions(sort)
   end
 
+  @doc """
+  Returns the target player's top fellow teammates, ranked over games where
+  both shared a team. All-time.
+
+  ## Options
+
+  - `:sort` — one of `#{inspect(@valid_sorts)}`. Default `:points`. Same
+    semantics as `list_player_stats/1`.
+  - `:limit` — number of rows to return. Default `5`. The list is sorted by
+    the chosen key first, then truncated — so changing `:sort` can change
+    which players appear (matching the old Go app's `getFavoriteTeamOf5`
+    behaviour).
+
+  The `games_ratio` percentage uses the target's own total games as the
+  denominator, so 100% means "always played together".
+  """
+  def favorite_team(player_id, opts \\ []) when is_binary(player_id) do
+    sort = Keyword.get(opts, :sort, :points)
+    limit = Keyword.get(opts, :limit, 5)
+    validate_sort!(sort)
+
+    rows = load_teammate_rows(player_id)
+    target_games = count_player_games(player_id)
+    max_games = Enum.reduce(rows, 0, fn row, acc -> max(row.games, acc) end)
+
+    rows
+    |> Enum.map(&derive(&1, target_games, max_games))
+    |> Enum.sort_by(&sort_key(&1, sort), :desc)
+    |> assign_positions(sort)
+    |> Enum.take(limit)
+  end
+
+  @doc """
+  Total number of games the player has played (all-time, all seasons).
+  """
+  def count_player_games(player_id) when is_binary(player_id) do
+    Repo.aggregate(
+      from(r in PlayerResult, where: r.player_id == ^player_id),
+      :count
+    )
+  end
+
   defp validate_sort!(sort) do
     unless sort in @valid_sorts do
       raise ArgumentError,
@@ -124,6 +167,26 @@ defmodule Fskick.Players do
           name: p.name,
           wins: s.wins,
           games: s.games
+        }
+    )
+  end
+
+  defp load_teammate_rows(player_id) do
+    Repo.all(
+      from t in PlayerResult,
+        where: t.player_id == ^player_id,
+        join: f in PlayerResult,
+        on:
+          f.game_id == t.game_id and f.team == t.team and
+            f.player_id != t.player_id,
+        join: p in Player,
+        on: p.id == f.player_id,
+        group_by: [f.player_id, p.name],
+        select: %{
+          player_id: f.player_id,
+          name: p.name,
+          wins: type(sum(fragment("CASE WHEN ? THEN 1 ELSE 0 END", f.won)), :integer),
+          games: type(count(f.game_id), :integer)
         }
     )
   end

@@ -9,6 +9,7 @@ defmodule FskickWeb.Components.PlayerStatsTable do
   attr :stats, :list, required: true
   attr :games_count, :integer, required: true
   attr :sort, :atom, required: true
+  attr :sort_event, :string, default: "sort"
 
   def player_stats_table(assigns) do
     ~H"""
@@ -17,10 +18,20 @@ defmodule FskickWeb.Components.PlayerStatsTable do
         <tr>
           <th class="border-b border-gray-500 text-left px-1 md:px-6 py-4">Pos ({length(@stats)})</th>
           <th class="border-b border-gray-500 text-left px-1 md:px-6 py-4">Player</th>
-          <.sort_header sort={@sort} key={:points} label="Points" />
-          <.sort_header sort={@sort} key={:wins} label="Wins" />
-          <.sort_header sort={@sort} key={:games} label={"Games (#{@games_count})"} />
-          <.sort_header sort={@sort} key={:win_ratio} label="Win Ratio" />
+          <.sort_header sort={@sort} sort_event={@sort_event} key={:points} label="Points" />
+          <.sort_header sort={@sort} sort_event={@sort_event} key={:wins} label="Wins" />
+          <.sort_header
+            sort={@sort}
+            sort_event={@sort_event}
+            key={:games}
+            label={"Games (#{@games_count})"}
+          />
+          <.sort_header
+            sort={@sort}
+            sort_event={@sort_event}
+            key={:win_ratio}
+            label="Win Ratio"
+          />
         </tr>
       </thead>
       <tbody>
@@ -46,6 +57,7 @@ defmodule FskickWeb.Components.PlayerStatsTable do
   end
 
   attr :sort, :atom, required: true
+  attr :sort_event, :string, required: true
   attr :key, :atom, required: true
   attr :label, :string, required: true
 
@@ -56,7 +68,7 @@ defmodule FskickWeb.Components.PlayerStatsTable do
         "border-b border-gray-500 text-left px-1 md:px-6 py-4 cursor-pointer",
         @sort == @key && "underline"
       ]}
-      phx-click="sort"
+      phx-click={@sort_event}
       phx-value-sort={Atom.to_string(@key)}
     >
       {@label}
