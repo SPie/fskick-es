@@ -20,10 +20,11 @@ defmodule FskickWeb.PlayerDetailLive do
       player ->
         {:ok,
          socket
-         |> assign(player: player, sort: :points, fav_sort: :points)
+         |> assign(player: player, sort: :points, fav_sort: :points, opp_sort: :points)
          |> load_stats()
          |> load_streak()
-         |> load_favorite_team()}
+         |> load_favorite_team()
+         |> load_favorite_opponents()}
     end
   end
 
@@ -39,6 +40,13 @@ defmodule FskickWeb.PlayerDetailLive do
      socket
      |> assign(:fav_sort, String.to_existing_atom(key))
      |> load_favorite_team()}
+  end
+
+  def handle_event("opponents_sort", %{"sort" => key}, socket) when key in @allowed_sorts do
+    {:noreply,
+     socket
+     |> assign(:opp_sort, String.to_existing_atom(key))
+     |> load_favorite_opponents()}
   end
 
   defp load_stats(socket) do
@@ -68,6 +76,14 @@ defmodule FskickWeb.PlayerDetailLive do
     assign(socket,
       favorite_team: Players.favorite_team(player_id, sort: socket.assigns.fav_sort),
       target_games: Players.count_player_games(player_id)
+    )
+  end
+
+  defp load_favorite_opponents(socket) do
+    player_id = socket.assigns.player.id
+
+    assign(socket,
+      favorite_opponents: Players.favorite_opponents(player_id, sort: socket.assigns.opp_sort)
     )
   end
 
@@ -111,6 +127,19 @@ defmodule FskickWeb.PlayerDetailLive do
               games_count={@target_games}
               sort={@fav_sort}
               sort_event="favorite_sort"
+            />
+          </div>
+        </div>
+
+        <div class="my-5">
+          <h3 class="text-left text-sm md:text-xl font-bold">Favorite Opponents</h3>
+
+          <div>
+            <.player_stats_table
+              stats={@favorite_opponents}
+              games_count={@target_games}
+              sort={@opp_sort}
+              sort_event="opponents_sort"
             />
           </div>
         </div>

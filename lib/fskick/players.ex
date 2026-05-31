@@ -134,6 +134,37 @@ defmodule Fskick.Players do
     )
   end
 
+  @doc """
+  Returns the target player's top opponents, ranked over games where they
+  played on opposite teams. All-time.
+
+  ## Options
+
+  - `:sort` — one of `#{inspect(@valid_sorts)}`. Default `:points`.
+  - `:limit` — number of rows to return. Default `5`. Same sort-then-take
+    semantics as `favorite_team/2`.
+
+  A draw counts as a `game-against` but not a `win-against`: a `win` is only
+  credited when the target's team strictly beat the opponent's team. The
+  `games_ratio` percentage uses the target's own total games as the
+  denominator, matching `favorite_team/2`.
+  """
+  def favorite_opponents(player_id, opts \\ []) when is_binary(player_id) do
+    sort = Keyword.get(opts, :sort, :points)
+    limit = Keyword.get(opts, :limit, 5)
+    validate_sort!(sort)
+
+    rows = load_opponent_rows(player_id)
+    target_games = count_player_games(player_id)
+    max_games = Enum.reduce(rows, 0, fn row, acc -> max(row.games, acc) end)
+
+    rows
+    |> Enum.map(&derive(&1, target_games, max_games))
+    |> Enum.sort_by(&sort_key(&1, sort), :desc)
+    |> assign_positions(sort)
+    |> Enum.take(limit)
+  end
+
   defp validate_sort!(sort) do
     unless sort in @valid_sorts do
       raise ArgumentError,
@@ -186,6 +217,28 @@ defmodule Fskick.Players do
           player_id: f.player_id,
           name: p.name,
           wins: type(sum(fragment("CASE WHEN ? THEN 1 ELSE 0 END", f.won)), :integer),
+          games: type(count(f.game_id), :integer)
+        }
+    )
+  end
+
+  defp load_opponent_rows(player_id) do
+    Repo.all(
+      from t in PlayerResult,
+        where: t.player_id == ^player_id,
+        join: f in PlayerResult,
+        on: f.game_id == t.game_id and f.team != t.team,
+        join: p in Player,
+        on: p.id == f.player_id,
+        group_by: [f.player_id, p.name],
+        select: %{
+          player_id: f.player_id,
+          name: p.name,
+          wins:
+            type(
+              sum(fragment("CASE WHEN ? AND NOT ? THEN 1 ELSE 0 END", t.won, f.won)),
+              :integer
+            ),
           games: type(count(f.game_id), :integer)
         }
     )
