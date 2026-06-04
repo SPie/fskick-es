@@ -70,7 +70,8 @@ defmodule Fskick.MixProject do
       {:commanded_eventstore_adapter, "~> 1.4"},
       {:commanded_ecto_projections, "~> 1.4"},
       {:eventstore, "~> 1.4"},
-      {:table_rex, "~> 4.1"}
+      {:table_rex, "~> 4.1"},
+      {:exqlite, "~> 0.27"}
     ]
   end
 

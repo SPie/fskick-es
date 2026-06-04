@@ -46,14 +46,49 @@ defmodule Fskick.Games.Commands.CreateGameTest do
       end
     end
 
-    test "rejects an empty team_a" do
-      assert {:error, changeset} = CreateGame.new(valid_attrs(%{team_a: []}))
-      assert "must contain at least one player" in errors_on(changeset).team_a
+    test "accepts an empty team_b with a :draw outcome (single-team draw)" do
+      attrs = valid_attrs(%{team_b: [], outcome: :draw})
+
+      assert {:ok, %CreateGame{team_b: [], outcome: :draw}} = CreateGame.new(attrs)
     end
 
-    test "rejects an empty team_b" do
-      assert {:error, changeset} = CreateGame.new(valid_attrs(%{team_b: []}))
-      assert "must contain at least one player" in errors_on(changeset).team_b
+    test "accepts an empty team_b with :team_b_won (populated team lost)" do
+      attrs = valid_attrs(%{team_b: [], outcome: :team_b_won})
+
+      assert {:ok, %CreateGame{team_b: [], outcome: :team_b_won}} = CreateGame.new(attrs)
+    end
+
+    test "accepts an empty team_a with a :draw outcome" do
+      attrs = valid_attrs(%{team_a: [], outcome: :draw})
+
+      assert {:ok, %CreateGame{team_a: [], outcome: :draw}} = CreateGame.new(attrs)
+    end
+
+    test "accepts an empty team_a with :team_a_won (populated team lost)" do
+      attrs = valid_attrs(%{team_a: [], outcome: :team_a_won})
+
+      assert {:ok, %CreateGame{team_a: [], outcome: :team_a_won}} = CreateGame.new(attrs)
+    end
+
+    test "rejects an empty team_b with :team_a_won (populated team can't win)" do
+      assert {:error, changeset} =
+               CreateGame.new(valid_attrs(%{team_b: [], outcome: :team_a_won}))
+
+      assert "populated team cannot win without an opponent" in errors_on(changeset).outcome
+    end
+
+    test "rejects an empty team_a with :team_b_won (populated team can't win)" do
+      assert {:error, changeset} =
+               CreateGame.new(valid_attrs(%{team_a: [], outcome: :team_b_won}))
+
+      assert "populated team cannot win without an opponent" in errors_on(changeset).outcome
+    end
+
+    test "rejects both teams empty" do
+      assert {:error, changeset} =
+               CreateGame.new(valid_attrs(%{team_a: [], team_b: [], outcome: :draw}))
+
+      assert "at least one team must contain a player" in errors_on(changeset).team_a
     end
 
     test "rejects duplicate players within team_a" do
