@@ -36,3 +36,8 @@ npm-debug.log
 /assets/node_modules/
 
 old
+
+# Local environment files for Docker Compose (production secrets).
+.env
+.env.*
+!.env.example

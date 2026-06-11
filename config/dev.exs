@@ -16,7 +16,7 @@ config :fskick, Fskick.EventStore,
   username: "postgres",
   password: "postgres",
   hostname: "localhost",
-  port: 5434,
+  port: 5433,
   database: "fskick_eventstore_dev"
 
 # For development, we disable any cache and enable

@@ -5,22 +5,12 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: fskick_dev
+      EVENT_STORE_DB: fskick_eventstore_dev
     ports:
       - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-
-  eventstore_db:
-    image: postgres:17-alpine
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: fskick_eventstore_dev
-    ports:
-      - "5434:5432"
-    volumes:
-      - eventstore_data:/var/lib/postgresql/data
+      - ./priv/postgres/init-eventstore-db.sh:/docker-entrypoint-initdb.d/init-eventstore-db.sh:ro
 
 volumes:
   postgres_data:
-  eventstore_data:
