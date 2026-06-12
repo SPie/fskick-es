@@ -15,10 +15,6 @@ defmodule FskickWeb.Router do
   end
 
   scope "/", FskickWeb do
-    get "/health", HealthController, :check
-  end
-
-  scope "/", FskickWeb do
     pipe_through :browser
 
     live "/", HomeLive, :home
