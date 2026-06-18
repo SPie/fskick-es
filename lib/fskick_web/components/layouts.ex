@@ -36,6 +36,14 @@ defmodule FskickWeb.Layouts do
               <h1 class="lg:text-5xl text-2xl font-bold">
                 <.link navigate={~p"/"}>FSKick</.link>
               </h1>
+              <a
+                class="text-xs"
+                href="https://github.com/SPie/fskick-es"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {Application.get_env(:fskick, :version, "dev")}
+              </a>
             </div>
             <div class="ml-10 flex items-baseline md:space-x-4 text-sm md:text-xl font-medium w-full">
               <.link navigate={~p"/"} class="pr-3 py-2 rounded-md">Seasons</.link>

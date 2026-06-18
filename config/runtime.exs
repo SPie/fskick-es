@@ -20,6 +20,8 @@ if System.get_env("PHX_SERVER") do
   config :fskick, FskickWeb.Endpoint, server: true
 end
 
+config :fskick, :version, System.get_env("APP_VERSION", "dev")
+
 config :fskick, FskickWeb.Endpoint,
   http: [port: String.to_integer(System.get_env("PORT", "4000"))]
 

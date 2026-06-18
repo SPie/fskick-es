@@ -38,6 +38,7 @@ services:
       EVENT_STORE_URL: ecto://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres/${EVENT_STORE_DB}
       SECRET_KEY_BASE: ${SECRET_KEY_BASE}
       PHX_HOST: ${PHX_HOST}
+      APP_VERSION: ${APP_VERSION:-dev}
       PORT: "4000"
     ports:
       - "4000:4000"
