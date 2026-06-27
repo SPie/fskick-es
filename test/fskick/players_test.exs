@@ -286,6 +286,191 @@ defmodule Fskick.PlayersTest do
     end
   end
 
+  describe "least_favorite_team/2" do
+    setup do
+      unique = System.unique_integer([:positive])
+      {:ok, season} = Seasons.create_season("season-#{unique}")
+      {:ok, _} = Seasons.activate_season(season.name)
+      {:ok, alice} = Players.create_player("Alice-#{unique}")
+      {:ok, t1} = Players.create_player("T1-#{unique}")
+      {:ok, t2} = Players.create_player("T2-#{unique}")
+      {:ok, t3} = Players.create_player("T3-#{unique}")
+      {:ok, t4} = Players.create_player("T4-#{unique}")
+      {:ok, t5} = Players.create_player("T5-#{unique}")
+      {:ok, o1} = Players.create_player("O1-#{unique}")
+      {:ok, o2} = Players.create_player("O2-#{unique}")
+
+      baseline = Repo.aggregate(PlayerResult, :count)
+
+      # t1 with alice: lost g1+g2, won g3 → 2 losses / 3 games
+      create_game!([alice, t1], [o1, o2], :team_b_won, ~U[2026-05-01 12:00:00.000000Z])
+      create_game!([alice, t1], [o1, o2], :team_b_won, ~U[2026-05-02 12:00:00.000000Z])
+      create_game!([alice, t1], [o1, o2], :team_a_won, ~U[2026-05-03 12:00:00.000000Z])
+      # t2 with alice: lost g4, drew g7 → 1 loss / 2 games (draw is not a loss)
+      create_game!([alice, t2], [o1, o2], :team_b_won, ~U[2026-05-04 12:00:00.000000Z])
+      # t3, t4 with alice lose together; t5 is on the opposing team here
+      create_game!([alice, t3, t4], [o1, o2, t5], :team_b_won, ~U[2026-05-05 12:00:00.000000Z])
+      # t5 with alice wins → 0 losses / 1 game (as a teammate)
+      create_game!([alice, t5], [o1, o2], :team_a_won, ~U[2026-05-06 12:00:00.000000Z])
+      create_game!([alice, t2], [o1, o2], :draw, ~U[2026-05-07 12:00:00.000000Z])
+
+      # 6 games × 4 players + 1 game × 6 players = 30 player_results rows.
+      await_results(baseline + 30)
+
+      %{alice: alice, t1: t1, t2: t2, t3: t3, t4: t4, t5: t5, o1: o1}
+    end
+
+    test "excludes opponents — o1 never shared a team with alice", %{alice: alice, o1: o1} do
+      result = Players.least_favorite_team(alice.id, sort: :wins, limit: 10)
+      refute Enum.any?(result, &(&1.player_id == o1.id))
+    end
+
+    test "excludes the target player themselves", %{alice: alice} do
+      result = Players.least_favorite_team(alice.id, sort: :wins, limit: 10)
+      refute Enum.any?(result, &(&1.player_id == alice.id))
+    end
+
+    test "counts losses over shared games; draws are games but not losses", %{
+      alice: alice,
+      t1: t1,
+      t2: t2
+    } do
+      result = Players.least_favorite_team(alice.id, sort: :wins, limit: 10)
+      assert %PlayerStat{wins: 2, games: 3} = Enum.find(result, &(&1.player_id == t1.id))
+      # t2 drew once and lost once: 1 loss over 2 shared games.
+      assert %PlayerStat{wins: 1, games: 2} = Enum.find(result, &(&1.player_id == t2.id))
+    end
+
+    test "default sort is :points, default limit is 5", %{alice: alice} do
+      result = Players.least_favorite_team(alice.id)
+      assert length(result) == 5
+      assert Enum.sort_by(result, & &1.points, :desc) == result
+    end
+
+    test "sorting by :wins ranks t1 first (most shared losses)", %{alice: alice, t1: t1} do
+      assert [%PlayerStat{player_id: id, wins: 2} | _] =
+               Players.least_favorite_team(alice.id, sort: :wins, limit: 5)
+
+      assert id == t1.id
+    end
+
+    test "returns [] for a player with no games" do
+      {:ok, ghost} = Players.create_player("Ghost-#{System.unique_integer([:positive])}")
+      assert Players.least_favorite_team(ghost.id) == []
+    end
+
+    test "games_ratio uses the target's own total games as denominator", %{
+      alice: alice,
+      t1: t1
+    } do
+      result = Players.least_favorite_team(alice.id, sort: :wins, limit: 10)
+      stat = Enum.find(result, &(&1.player_id == t1.id))
+      # Alice played 7 games total; t1 shared the team in 3 → 3/7 * 100 = 42.857
+      assert_in_delta stat.games_ratio, 3 / 7 * 100, 0.01
+    end
+  end
+
+  describe "least_favorite_opponents/2" do
+    setup do
+      unique = System.unique_integer([:positive])
+      {:ok, season} = Seasons.create_season("season-#{unique}")
+      {:ok, _} = Seasons.activate_season(season.name)
+      {:ok, alice} = Players.create_player("Alice-#{unique}")
+      {:ok, b1} = Players.create_player("B1-#{unique}")
+      {:ok, opp_a} = Players.create_player("OppA-#{unique}")
+      {:ok, opp_b} = Players.create_player("OppB-#{unique}")
+      {:ok, opp_c} = Players.create_player("OppC-#{unique}")
+      {:ok, opp_d} = Players.create_player("OppD-#{unique}")
+      {:ok, opp_e} = Players.create_player("OppE-#{unique}")
+
+      baseline = Repo.aggregate(PlayerResult, :count)
+
+      # opp_a: alice lost g1+g2, drew g3 → 2 losses-against / 3 games-against
+      create_game!([alice], [opp_a], :team_b_won, ~U[2026-06-01 12:00:00.000000Z])
+      create_game!([alice], [opp_a], :team_b_won, ~U[2026-06-02 12:00:00.000000Z])
+      create_game!([alice], [opp_a], :draw, ~U[2026-06-03 12:00:00.000000Z])
+      # opp_b: alice lost → 1 loss-against / 1 game
+      create_game!([alice], [opp_b], :team_b_won, ~U[2026-06-04 12:00:00.000000Z])
+      # opp_c, opp_d: alice (with b1) lost → each 1 loss-against / 1 game
+      create_game!([alice, b1], [opp_c, opp_d], :team_b_won, ~U[2026-06-05 12:00:00.000000Z])
+      # opp_e: alice won → 0 losses-against / 1 game
+      create_game!([alice], [opp_e], :team_a_won, ~U[2026-06-06 12:00:00.000000Z])
+
+      # Row count: 2 + 2 + 2 + 2 + 4 + 2 = 14
+      await_results(baseline + 14)
+
+      %{
+        alice: alice,
+        b1: b1,
+        opp_a: opp_a,
+        opp_b: opp_b,
+        opp_c: opp_c,
+        opp_d: opp_d,
+        opp_e: opp_e
+      }
+    end
+
+    test "excludes teammates — b1 never opposed alice", %{alice: alice, b1: b1} do
+      result = Players.least_favorite_opponents(alice.id, sort: :wins, limit: 10)
+      refute Enum.any?(result, &(&1.player_id == b1.id))
+    end
+
+    test "excludes the target themselves", %{alice: alice} do
+      result = Players.least_favorite_opponents(alice.id, sort: :wins, limit: 10)
+      refute Enum.any?(result, &(&1.player_id == alice.id))
+    end
+
+    test "draws count as games-against but NOT as losses-against", %{alice: alice, opp_a: opp_a} do
+      result = Players.least_favorite_opponents(alice.id, sort: :wins, limit: 10)
+      stat = Enum.find(result, &(&1.player_id == opp_a.id))
+      assert %PlayerStat{wins: 2, games: 3} = stat
+      assert_in_delta stat.win_ratio, 2 / 3 * 100, 0.01
+    end
+
+    test "default sort is :points, default limit is 5", %{alice: alice} do
+      result = Players.least_favorite_opponents(alice.id)
+      assert length(result) == 5
+      assert Enum.sort_by(result, & &1.points, :desc) == result
+    end
+
+    test "sorting by :wins ranks opp_a first (2 losses-against)", %{alice: alice, opp_a: opp_a} do
+      assert [%PlayerStat{player_id: id, wins: 2} | _] =
+               Players.least_favorite_opponents(alice.id, sort: :wins, limit: 5)
+
+      assert id == opp_a.id
+    end
+
+    test "sorting by :win_ratio ranks 100%-loss opponents above opp_a (66.7%)", %{
+      alice: alice,
+      opp_a: opp_a,
+      opp_b: opp_b,
+      opp_c: opp_c,
+      opp_d: opp_d
+    } do
+      [first, second, third | _] =
+        Players.least_favorite_opponents(alice.id, sort: :win_ratio, limit: 5)
+
+      top3 = MapSet.new([first.player_id, second.player_id, third.player_id])
+      assert top3 == MapSet.new([opp_b.id, opp_c.id, opp_d.id])
+      refute opp_a.id in top3
+    end
+
+    test "returns [] for a player with no games" do
+      {:ok, ghost} = Players.create_player("Ghost-#{System.unique_integer([:positive])}")
+      assert Players.least_favorite_opponents(ghost.id) == []
+    end
+
+    test "games_ratio uses the target's own total games as denominator", %{
+      alice: alice,
+      opp_a: opp_a
+    } do
+      result = Players.least_favorite_opponents(alice.id, sort: :wins, limit: 10)
+      stat = Enum.find(result, &(&1.player_id == opp_a.id))
+      # Alice played 6 games total; opp_a was opponent in 3 → 3/6 * 100 = 50
+      assert_in_delta stat.games_ratio, 50.0, 0.01
+    end
+  end
+
   defp create_game!(team_a, team_b, outcome, played_at) do
     {:ok, command} =
       Games.create_game(%{

@@ -1,5 +1,6 @@
 defmodule FskickWeb.StreaksLive do
   use FskickWeb, :live_view
+  import FskickWeb.Components.WinLossToggle
 
   alias Fskick.Streaks
 
@@ -50,18 +51,7 @@ defmodule FskickWeb.StreaksLive do
           <div class="flex items-center space-x-4">
             <h3 class="text-left text-sm md:text-xl font-bold">Current Streaks</h3>
 
-            <label class="flex items-center relative w-max cursor-pointer select-none py-5">
-              <input
-                type="checkbox"
-                name="win"
-                checked={@current_type == :win}
-                phx-click="toggle_current"
-                class="peer appearance-none transition-colors cursor-pointer w-14 h-7 rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-black bg-red-700 checked:bg-green-700"
-              />
-              <span class="absolute font-medium text-xs uppercase right-1 text-white">L</span>
-              <span class="absolute font-medium text-xs uppercase right-8 text-white">W</span>
-              <span class="w-7 h-7 right-7 absolute rounded-full transform transition-transform bg-gray-200 peer-checked:translate-x-7" />
-            </label>
+            <.win_loss_toggle checked={@current_type == :win} event="toggle_current" />
           </div>
 
           <ul class="my-5 px-6">

@@ -10,6 +10,8 @@ defmodule FskickWeb.Components.PlayerStatsTable do
   attr :games_count, :integer, required: true
   attr :sort, :atom, required: true
   attr :sort_event, :string, default: "sort"
+  attr :count_label, :string, default: "Wins"
+  attr :ratio_label, :string, default: "Win Ratio"
 
   def player_stats_table(assigns) do
     ~H"""
@@ -19,7 +21,7 @@ defmodule FskickWeb.Components.PlayerStatsTable do
           <th class="border-b border-gray-500 text-left px-1 md:px-6 py-4">Pos ({length(@stats)})</th>
           <th class="border-b border-gray-500 text-left px-1 md:px-6 py-4">Player</th>
           <.sort_header sort={@sort} sort_event={@sort_event} key={:points} label="Points" />
-          <.sort_header sort={@sort} sort_event={@sort_event} key={:wins} label="Wins" />
+          <.sort_header sort={@sort} sort_event={@sort_event} key={:wins} label={@count_label} />
           <.sort_header
             sort={@sort}
             sort_event={@sort_event}
@@ -30,7 +32,7 @@ defmodule FskickWeb.Components.PlayerStatsTable do
             sort={@sort}
             sort_event={@sort_event}
             key={:win_ratio}
-            label="Win Ratio"
+            label={@ratio_label}
           />
         </tr>
       </thead>
