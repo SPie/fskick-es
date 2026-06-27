@@ -38,7 +38,7 @@ defmodule FskickWeb.Layouts do
               </h1>
               <a
                 class="text-xs"
-                href="https://github.com/SPie/fskick-es"
+                href={Application.get_env(:fskick, :repository_url, "https://github.com/SPie/fskick")}
                 target="_blank"
                 rel="noopener noreferrer"
               >

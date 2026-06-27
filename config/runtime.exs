@@ -22,6 +22,10 @@ end
 
 config :fskick, :version, System.get_env("APP_VERSION", "dev")
 
+config :fskick,
+       :repository_url,
+       System.get_env("APP_REPOSITORY_URL", "https://github.com/SPie/fskick")
+
 config :fskick, FskickWeb.Endpoint,
   http: [port: String.to_integer(System.get_env("PORT", "4000"))]
 
